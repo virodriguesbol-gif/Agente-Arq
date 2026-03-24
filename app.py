@@ -7,6 +7,7 @@ from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 import io
 import gc
+import markdown # <--- Nova biblioteca para formatar o e-mail
 
 # --- CONFIGURAÇÕES INICIAIS ---
 st.set_page_config(page_title="Auditor de Projetos Arq", layout="centered")
@@ -22,32 +23,32 @@ EMAIL_REMETENTE = st.secrets["EMAIL_USER"]
 EMAIL_PASSWORD = st.secrets["EMAIL_PASS"]
 
 def pdf_to_images(pdf_file):
-    """Converte as páginas do PDF em imagens de forma otimizada"""
+    """Converte TODAS as páginas do PDF em imagens"""
     pdf = pdfium.PdfDocument(pdf_file)
     images = []
-    # Limitamos a 5 páginas para não estourar o limite de RAM do Streamlit
-    num_paginas = min(len(pdf), 5) 
     
-    for i in range(num_paginas):
+    # Removida a trava de 5 páginas. Agora vai ler o tamanho total do PDF!
+    for i in range(len(pdf)):
         page = pdf[i]
-        # scale=1.5 é o equilíbrio perfeito entre leitura de cota e economia de memória
+        # scale=1.5 economiza memória mas mantém legibilidade
         bitmap = page.render(scale=1.5) 
         pil_image = bitmap.to_pil()
         images.append(pil_image)
-        # Limpeza rápida de memória
-        page.close()
+        page.close() # Limpa a memória da página atual imediatamente
     
     pdf.close()
     return images
 
-def enviar_email(relatorio):
-    """Envia o relatório final para o seu e-mail"""
+def enviar_email(relatorio_md):
+    """Converte o relatório para HTML e envia bonito para o e-mail"""
     msg = MIMEMultipart()
     msg['From'] = EMAIL_REMETENTE
     msg['To'] = EMAIL_DESTINO
     msg['Subject'] = "Relatório de Auditoria de Projeto - Novo Upload"
     
-    msg.attach(MIMEText(relatorio, 'plain'))
+    # Converte o texto com asteriscos (Markdown) para formatação de E-mail (HTML)
+    html_content = markdown.markdown(relatorio_md)
+    msg.attach(MIMEText(html_content, 'html'))
     
     try:
         server = smtplib.SMTP('smtp.gmail.com', 587)
@@ -61,16 +62,19 @@ def enviar_email(relatorio):
         return False
 
 # --- INTERFACE ---
-uploaded_file = st.file_uploader("Arraste o PDF do projeto aqui (Máx. 5 páginas serão analisadas)", type="pdf")
+uploaded_file = st.file_uploader("Arraste o PDF completo do projeto aqui", type="pdf")
 
 if uploaded_file is not None:
-    if st.button("🚀 Iniciar Auditoria Técnica"):
-        with st.spinner("Analisando projeto... O Gemini 2.5 está processando."):
+    if st.button("🚀 Iniciar Auditoria Técnica Completa"):
+        # Um aviso para você saber que pode demorar
+        st.warning("Processando projeto completo. Isso pode levar alguns minutos dependendo do tamanho do arquivo. Não feche a página.")
+        
+        with st.spinner("Lendo pranchas e acionando IA..."):
             try:
                 # 1. Preparar imagens
                 images = pdf_to_images(uploaded_file)
                 
-                # 2. Configurar o Modelo (Versão 2.5 Flash conforme seu painel)
+                # 2. Configurar o Modelo
                 model = genai.GenerativeModel('gemini-2.5-flash')
                 
                 # 3. Prompt Especialista
@@ -94,12 +98,12 @@ if uploaded_file is not None:
                 st.markdown(relatorio)
                 
                 if enviar_email(relatorio):
-                    st.success(f"Relatório enviado com sucesso para {EMAIL_DESTINO}!")
+                    st.success(f"Relatório enviado com formatação HTML para {EMAIL_DESTINO}!")
                 
-                # Limpeza final de memória
+                # Limpeza final de memória pesada
                 del images
                 gc.collect()
 
             except Exception as e:
                 st.error(f"Ocorreu um erro: {e}")
-                st.info("Dica: Se aparecer 'Quota Exceeded', espere 2 minutos e tente de novo.")
+                st.info("Dica: Se o site travou, o PDF era pesado demais para o servidor grátis. Tente dividir o PDF em 2 partes.")
