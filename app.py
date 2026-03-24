@@ -62,7 +62,7 @@ if uploaded_file is not None:
             images = pdf_to_images(uploaded_file)
             
             # 2. Configurar o Modelo (Gemini 1.5 Pro é melhor para plantas)
-            model = genai.GenerativeModel('gemini-1.5-pro')
+            model = genai.GenerativeModel('gemini-2.0-flash')
             
             # 3. Prompt Especialista
             prompt = """
