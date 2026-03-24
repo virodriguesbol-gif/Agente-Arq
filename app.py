@@ -65,7 +65,7 @@ if uploaded_file is not None:
                 
                 # 2. Configurar o Modelo (Usando o nome oficial estável)
                 # Se o 2.0-flash der erro, mude para 'gemini-1.5-flash'
-                model = genai.GenerativeModel('gemini-2.0-flash-001')
+                model = genai.GenerativeModel('gemini-1.5-flash')
                 
                 # 3. Prompt Especialista (Refinado)
                 prompt = """
