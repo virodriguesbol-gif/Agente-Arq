@@ -64,7 +64,7 @@ if uploaded_file is not None:
                 images = pdf_to_images(uploaded_file)
                 
                 # 2. Configurar o Modelo (Usando a versão estável com caminho completo)
-                model = genai.GenerativeModel('models/gemini-1.5-flash-latest')
+                model = genai.GenerativeModel('gemini-3-flash')
                 
                 # 3. Prompt Especialista (Refinado)
                 prompt = """
