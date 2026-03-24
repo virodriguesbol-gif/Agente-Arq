@@ -2,3 +2,4 @@ streamlit
 google-generativeai
 pypdfium2
 Pillow
+markdown
