@@ -63,9 +63,8 @@ if uploaded_file is not None:
                 # 1. Preparar imagens
                 images = pdf_to_images(uploaded_file)
                 
-                # 2. Configurar o Modelo (Usando o nome oficial estável)
-                # Se o 2.0-flash der erro, mude para 'gemini-1.5-flash'
-                 model = genai.GenerativeModel('models/gemini-1.5-flash-latest')
+                # 2. Configurar o Modelo (Usando a versão estável com caminho completo)
+                model = genai.GenerativeModel('models/gemini-1.5-flash-latest')
                 
                 # 3. Prompt Especialista (Refinado)
                 prompt = """
@@ -84,7 +83,7 @@ if uploaded_file is not None:
                 - 💡 Sugestões de melhoria
                 """
                 
-                # 4. Gerar resposta (Passando as imagens como lista)
+                # 4. Gerar resposta
                 response = model.generate_content([prompt, *images])
                 relatorio = response.text
                 
@@ -99,4 +98,4 @@ if uploaded_file is not None:
             
             except Exception as e:
                 st.error(f"Ocorreu um erro durante a análise: {e}")
-                st.info("Dica: Se for um erro de 'NotFound', tente mudar o modelo no código para 'gemini-1.5-flash'.")
+                st.info("Aguarde 1 minuto e tente novamente caso seja um erro de limite (Quota).")
