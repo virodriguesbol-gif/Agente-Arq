@@ -12,7 +12,7 @@ st.set_page_config(page_title="Auditor de Projetos Arq", layout="centered")
 st.title("🏗️ Agente Auditor de Arquitetura")
 
 # Recupera a API Key das "Secrets" do Streamlit (Configuraremos no painel depois)
-API_KEY = st.secrets["AIzaSyDMlBemo9w1HVGpjJymYIbCIOAXHXCRapM"]
+API_KEY = st.secrets["GOOGLE_API_KEY"]
 genai.configure(api_key=API_KEY)
 
 # Configuração do E-mail (Também via Secrets por segurança)
