@@ -6,6 +6,7 @@ import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 import io
+import gc
 
 # --- CONFIGURAÇÕES INICIAIS ---
 st.set_page_config(page_title="Auditor de Projetos Arq", layout="centered")
@@ -21,15 +22,22 @@ EMAIL_REMETENTE = st.secrets["EMAIL_USER"]
 EMAIL_PASSWORD = st.secrets["EMAIL_PASS"]
 
 def pdf_to_images(pdf_file):
-    """Converte as páginas do PDF em imagens para a IA 'enxergar'"""
+    """Converte as páginas do PDF em imagens de forma otimizada"""
     pdf = pdfium.PdfDocument(pdf_file)
     images = []
-    for i in range(len(pdf)):
+    # Limitamos a 5 páginas para não estourar o limite de RAM do Streamlit
+    num_paginas = min(len(pdf), 5) 
+    
+    for i in range(num_paginas):
         page = pdf[i]
-        # Renderizamos com scale=3 para garantir que a IA leia as cotas pequenas
-        bitmap = page.render(scale=3) 
+        # scale=1.5 é o equilíbrio perfeito entre leitura de cota e economia de memória
+        bitmap = page.render(scale=1.5) 
         pil_image = bitmap.to_pil()
         images.append(pil_image)
+        # Limpeza rápida de memória
+        page.close()
+    
+    pdf.close()
     return images
 
 def enviar_email(relatorio):
@@ -42,7 +50,6 @@ def enviar_email(relatorio):
     msg.attach(MIMEText(relatorio, 'plain'))
     
     try:
-        # Usamos o servidor do Gmail
         server = smtplib.SMTP('smtp.gmail.com', 587)
         server.starttls()
         server.login(EMAIL_REMETENTE, EMAIL_PASSWORD)
@@ -54,33 +61,28 @@ def enviar_email(relatorio):
         return False
 
 # --- INTERFACE ---
-uploaded_file = st.file_uploader("Arraste o PDF do projeto aqui", type="pdf")
+uploaded_file = st.file_uploader("Arraste o PDF do projeto aqui (Máx. 5 páginas serão analisadas)", type="pdf")
 
 if uploaded_file is not None:
     if st.button("🚀 Iniciar Auditoria Técnica"):
-        with st.spinner("Analisando projeto... Isso pode levar de 30 a 60 segundos."):
+        with st.spinner("Analisando projeto... O Gemini 2.5 está processando."):
             try:
                 # 1. Preparar imagens
                 images = pdf_to_images(uploaded_file)
                 
-                # 2. Configurar o Modelo (Usando a versão estável com caminho completo)
-                model = genai.GenerativeModel('gemini-3-flash')
+                # 2. Configurar o Modelo (Versão 2.5 Flash conforme seu painel)
+                model = genai.GenerativeModel('gemini-2.5-flash')
                 
-                # 3. Prompt Especialista (Refinado)
+                # 3. Prompt Especialista
                 prompt = """
-                Você é um arquiteto auditor sênior experiente em normas técnicas. 
-                Analise cuidadosamente as imagens desta planta e realize uma auditoria detalhada:
-                
-                1. COTAS: Verifique se as cotas estão completas e se os valores são coerentes com a escala (ex: portas e paredes com medidas padrão).
-                2. ELÉTRICA BANHEIRO: Procure especificamente por pontos de tomada destinados a TOALHEIRO ELÉTRICO.
-                3. ELÉTRICA COZINHA: Se houver uma ilha, verifique se existem tomadas previstas nela.
-                4. GRAMÁTICA E TEXTO: Liste qualquer erro ortográfico em legendas, notas ou no selo.
-                5. ACESSIBILIDADE: Verifique se as portas de acesso possuem a largura mínima de 80cm.
+                Você é um arquiteto auditor sênior. Analise as imagens desta planta:
+                1. COTAS: Verifique se as cotas estão completas e coerentes.
+                2. ELÉTRICA BANHEIRO: Procure por pontos de tomada para TOALHEIRO ELÉTRICO.
+                3. ELÉTRICA COZINHA: Se houver ilha, verifique se há tomadas nela.
+                4. GRAMÁTICA: Liste erros de escrita em legendas ou selos.
+                5. ACESSIBILIDADE: Portas principais devem ter no mínimo 80cm.
 
-                Retorne um relatório organizado com: 
-                - ✅ Itens em conformidade
-                - ❌ Problemas detectados
-                - 💡 Sugestões de melhoria
+                Retorne um relatório organizado com conformidades, erros e sugestões.
                 """
                 
                 # 4. Gerar resposta
@@ -93,9 +95,11 @@ if uploaded_file is not None:
                 
                 if enviar_email(relatorio):
                     st.success(f"Relatório enviado com sucesso para {EMAIL_DESTINO}!")
-                else:
-                    st.warning("O relatório foi gerado, mas houve um problema ao enviar o e-mail.")
-            
+                
+                # Limpeza final de memória
+                del images
+                gc.collect()
+
             except Exception as e:
-                st.error(f"Ocorreu um erro durante a análise: {e}")
-                st.info("Aguarde 1 minuto e tente novamente caso seja um erro de limite (Quota).")
+                st.error(f"Ocorreu um erro: {e}")
+                st.info("Dica: Se aparecer 'Quota Exceeded', espere 2 minutos e tente de novo.")
