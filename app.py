@@ -7,7 +7,7 @@ from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 import io
 import gc
-import markdown # <--- Nova biblioteca para formatar o e-mail
+import markdown
 
 # --- CONFIGURAÇÕES INICIAIS ---
 st.set_page_config(page_title="Auditor de Projetos Arq", layout="centered")
@@ -17,8 +17,7 @@ st.title("🏗️ Agente Auditor de Arquitetura")
 API_KEY = st.secrets["GOOGLE_API_KEY"]
 genai.configure(api_key=API_KEY)
 
-# Configuração do E-mail
-EMAIL_DESTINO = "virodriguesbol@gmail.com"
+# Configurações do Remetente (Vêm do Secrets)
 EMAIL_REMETENTE = st.secrets["EMAIL_USER"]
 EMAIL_PASSWORD = st.secrets["EMAIL_PASS"]
 
@@ -26,27 +25,22 @@ def pdf_to_images(pdf_file):
     """Converte TODAS as páginas do PDF em imagens"""
     pdf = pdfium.PdfDocument(pdf_file)
     images = []
-    
-    # Removida a trava de 5 páginas. Agora vai ler o tamanho total do PDF!
     for i in range(len(pdf)):
         page = pdf[i]
-        # scale=1.5 economiza memória mas mantém legibilidade
         bitmap = page.render(scale=1.5) 
         pil_image = bitmap.to_pil()
         images.append(pil_image)
-        page.close() # Limpa a memória da página atual imediatamente
-    
+        page.close()
     pdf.close()
     return images
 
-def enviar_email(relatorio_md):
-    """Converte o relatório para HTML e envia bonito para o e-mail"""
+def enviar_email(relatorio_md, destinatario):
+    """Converte o relatório para HTML e envia para o destinatário escolhido"""
     msg = MIMEMultipart()
     msg['From'] = EMAIL_REMETENTE
-    msg['To'] = EMAIL_DESTINO
+    msg['To'] = destinatario
     msg['Subject'] = "Relatório de Auditoria de Projeto - Novo Upload"
     
-    # Converte o texto com asteriscos (Markdown) para formatação de E-mail (HTML)
     html_content = markdown.markdown(relatorio_md)
     msg.attach(MIMEText(html_content, 'html'))
     
@@ -62,12 +56,14 @@ def enviar_email(relatorio_md):
         return False
 
 # --- INTERFACE ---
-uploaded_file = st.file_uploader("Arraste o PDF completo do projeto aqui", type="pdf")
+uploaded_file = st.file_uploader("1. Arraste o PDF completo do projeto aqui", type="pdf")
+
+# NOVO: Campo para definir o e-mail de destino na hora
+email_destino = st.text_input("2. Para qual e-mail devo enviar o relatório?", value="virodriguesbol@gmail.com")
 
 if uploaded_file is not None:
-    if st.button("🚀 Iniciar Auditoria Técnica Completa"):
-        # Um aviso para você saber que pode demorar
-        st.warning("Processando projeto completo. Isso pode levar alguns minutos dependendo do tamanho do arquivo. Não feche a página.")
+    if st.button("🚀 3. Iniciar Auditoria Técnica Completa"):
+        st.warning(f"Processando projeto completo. O relatório será enviado para: {email_destino}")
         
         with st.spinner("Lendo pranchas e acionando IA..."):
             try:
@@ -97,13 +93,11 @@ if uploaded_file is not None:
                 st.subheader("📋 Resultado da Auditoria")
                 st.markdown(relatorio)
                 
-                if enviar_email(relatorio):
-                    st.success(f"Relatório enviado com formatação HTML para {EMAIL_DESTINO}!")
+                if enviar_email(relatorio, email_destino):
+                    st.success(f"Sucesso! Relatório enviado para {email_destino}")
                 
-                # Limpeza final de memória pesada
                 del images
                 gc.collect()
 
             except Exception as e:
                 st.error(f"Ocorreu um erro: {e}")
-                st.info("Dica: Se o site travou, o PDF era pesado demais para o servidor grátis. Tente dividir o PDF em 2 partes.")
