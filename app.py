@@ -10,8 +10,8 @@ import gc
 import markdown
 
 # --- CONFIGURAÇÕES INICIAIS ---
-st.set_page_config(page_title="Auditor de Projetos Arq", layout="centered")
-st.title("🏗️ Agente Auditor de Arquitetura")
+st.set_page_config(page_title="Auditor Arq Sênior", layout="wide")
+st.title("📐 Agente Arquiteto Revisor Sênior")
 
 # Recupera a API Key das "Secrets" do Streamlit
 API_KEY = st.secrets["GOOGLE_API_KEY"]
@@ -22,7 +22,6 @@ EMAIL_REMETENTE = st.secrets["EMAIL_USER"]
 EMAIL_PASSWORD = st.secrets["EMAIL_PASS"]
 
 def pdf_to_images(pdf_file):
-    """Converte TODAS as páginas do PDF em imagens"""
     pdf = pdfium.PdfDocument(pdf_file)
     images = []
     for i in range(len(pdf)):
@@ -35,14 +34,27 @@ def pdf_to_images(pdf_file):
     return images
 
 def enviar_email(relatorio_md, destinatario):
-    """Converte o relatório para HTML e envia para o destinatário escolhido"""
     msg = MIMEMultipart()
     msg['From'] = EMAIL_REMETENTE
     msg['To'] = destinatario
-    msg['Subject'] = "Relatório de Auditoria de Projeto - Novo Upload"
+    msg['Subject'] = "Relatório Técnico de Revisão Executiva - Auditoria de Projeto"
     
-    html_content = markdown.markdown(relatorio_md)
-    msg.attach(MIMEText(html_content, 'html'))
+    # CSS básico para deixar a tabela e o e-mail bonitos no Gmail
+    estilo_html = """
+    <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+        table { border-collapse: collapse; width: 100%; margin-top: 20px; }
+        th, td { border: 1px solid #ddd; padding: 12px; text-align: left; }
+        th { background-color: #f4f4f4; color: #333; }
+        tr:nth-child(even) { background-color: #f9f9f9; }
+        .header { background-color: #2c3e50; color: white; padding: 20px; text-align: center; }
+    </style>
+    """
+    
+    corpo_html = markdown.markdown(relatorio_md, extensions=['tables'])
+    html_final = f"<html><head>{estilo_html}</head><body><div class='header'><h2>Relatório de Revisão Técnica</h2></div>{corpo_html}</body></html>"
+    
+    msg.attach(MIMEText(html_final, 'html'))
     
     try:
         server = smtplib.SMTP('smtp.gmail.com', 587)
@@ -56,48 +68,48 @@ def enviar_email(relatorio_md, destinatario):
         return False
 
 # --- INTERFACE ---
-uploaded_file = st.file_uploader("1. Arraste o PDF completo do projeto aqui", type="pdf")
-
-# NOVO: Campo para definir o e-mail de destino na hora
-email_destino = st.text_input("2. Para qual e-mail devo enviar o relatório?", value="virodriguesbol@gmail.com")
+uploaded_file = st.file_uploader("1. Faça o upload do arquivo técnico (PDF)", type="pdf")
+email_destino = st.text_input("2. E-mail para envio do relatório técnico:", value="virodriguesbol@gmail.com")
 
 if uploaded_file is not None:
-    if st.button("🚀 3. Iniciar Auditoria Técnica Completa"):
-        st.warning(f"Processando projeto completo. O relatório será enviado para: {email_destino}")
+    if st.button("🚀 Iniciar Revisão Técnica Sênior"):
+        st.info(f"O Arquiteto Revisor está analisando as pranchas. O e-mail será enviado para: {email_destino}")
         
-        with st.spinner("Lendo pranchas e acionando IA..."):
+        with st.spinner("Realizando conferência de normas (NBR 6492 / NBR 5410)..."):
             try:
-                # 1. Preparar imagens
                 images = pdf_to_images(uploaded_file)
-                
-                # 2. Configurar o Modelo
                 model = genai.GenerativeModel('gemini-2.5-flash')
                 
-                # 3. Prompt Especialista
-                prompt = """
-                Você é um arquiteto auditor sênior. Analise as imagens desta planta:
-                1. COTAS: Verifique se as cotas estão completas e coerentes.
-                2. ELÉTRICA BANHEIRO: Procure por pontos de tomada para TOALHEIRO ELÉTRICO.
-                3. ELÉTRICA COZINHA: Se houver ilha, verifique se há tomadas nela.
-                4. GRAMÁTICA: Liste erros de escrita em legendas ou selos.
-                5. ACESSIBILIDADE: Portas principais devem ter no mínimo 80cm.
+                # A sua Persona e Checklist integrados:
+                prompt = f"""
+                Persona: Você é um Arquiteto Revisor Sênior com 20 anos de experiência em detalhamento técnico e compatibilização. 
+                Sua visão é analítica, focada nas normas NBR 6492 e NBR 5410.
 
-                Retorne um relatório organizado com conformidades, erros e sugestões.
+                Instruções de Análise:
+                Analise o arquivo PDF (imagens das pranchas) seguindo estas 4 camadas:
+                1. Conformidade de Cotas e Escala: Verifique cotas ausentes, erros de soma e proporcionalidade.
+                2. Erros Ortográficos e Textuais: Revise legendas, selos e nomenclatura de ambientes.
+                3. Infraestrutura Elétrica e Tomadas: Avalie funcionalidade, alturas e pontos críticos (interruptores e tomadas de bancada/ilha/cabeceira).
+                4. Inconsistências de Layout: Identifique conflitos entre móveis e pontos elétricos e confira bonecas de portas/janelas.
+
+                Formato da Resposta (Obrigatório para o E-mail):
+                - Inicie com um breve parágrafo profissional de introdução.
+                - Apresente os achados OBRIGATORIAMENTE em uma TABELA Markdown com as colunas: | Tipo de Erro | Localização (Ambiente) | Descrição do Problema | Sugestão de Correção |
+                - Finalize com uma breve conclusão sobre a viabilidade executiva do projeto.
+                - Use um tom sério, técnico e direto.
                 """
                 
-                # 4. Gerar resposta
                 response = model.generate_content([prompt, *images])
                 relatorio = response.text
                 
-                # 5. Mostrar na tela e enviar e-mail
-                st.subheader("📋 Resultado da Auditoria")
+                st.subheader("📋 Relatório Gerado")
                 st.markdown(relatorio)
                 
                 if enviar_email(relatorio, email_destino):
-                    st.success(f"Sucesso! Relatório enviado para {email_destino}")
+                    st.success(f"Relatório enviado com sucesso! Verifique o e-mail {email_destino}")
                 
                 del images
                 gc.collect()
 
             except Exception as e:
-                st.error(f"Ocorreu um erro: {e}")
+                st.error(f"Ocorreu um erro na análise: {e}")
