@@ -9,11 +9,10 @@ import io
 import gc
 import markdown
 
-# --- CONFIGURAÇÕES INICIAIS ---
-st.set_page_config(page_title="Auditor Arq Sênior v3.0", layout="wide")
-st.title("📐 Agente Arquiteto Revisor Sênior (Filtro Anti-Erro)")
+# --- CONFIGURAÇÕES ---
+st.set_page_config(page_title="Auditor Arq Sênior v4.0", layout="wide")
+st.title("📐 Auditor Arquiteto Sênior (Lógica de Conferência Real)")
 
-# Recupera a API Key das "Secrets" do Streamlit
 API_KEY = st.secrets["GOOGLE_API_KEY"]
 genai.configure(api_key=API_KEY)
 
@@ -25,8 +24,8 @@ def pdf_to_images(pdf_file):
     images = []
     for i in range(len(pdf)):
         page = pdf[i]
-        # Aumentamos para 2.5 para dar "visão de águia" à IA
-        bitmap = page.render(scale=2.5) 
+        # Scale 3.0 para máxima nitidez possível
+        bitmap = page.render(scale=3.0) 
         pil_image = bitmap.to_pil()
         images.append(pil_image)
         page.close()
@@ -37,22 +36,10 @@ def enviar_email(relatorio_md, destinatario):
     msg = MIMEMultipart()
     msg['From'] = EMAIL_REMETENTE
     msg['To'] = destinatario
-    msg['Subject'] = "Relatório de Revisão Técnica - Auditoria Validada"
-    
-    estilo_html = """
-    <style>
-        body { font-family: 'Segoe UI', Arial, sans-serif; line-height: 1.6; color: #333; }
-        table { border-collapse: collapse; width: 100%; margin: 20px 0; font-size: 13px; }
-        th, td { border: 1px solid #ddd; padding: 10px; text-align: left; }
-        th { background-color: #2c3e50; color: white; }
-        tr:nth-child(even) { background-color: #f8f9fa; }
-        .critical { color: #e74c3c; font-weight: bold; }
-    </style>
-    """
+    msg['Subject'] = "Relatório de Auditoria Técnica - Revisão Validada"
     
     corpo_html = markdown.markdown(relatorio_md, extensions=['tables'])
-    html_final = f"<html><head>{estilo_html}</head><body>{corpo_html}</body></html>"
-    msg.attach(MIMEText(html_final, 'html'))
+    msg.attach(MIMEText(corpo_html, 'html'))
     
     try:
         server = smtplib.SMTP('smtp.gmail.com', 587)
@@ -61,36 +48,41 @@ def enviar_email(relatorio_md, destinatario):
         server.send_message(msg)
         server.quit()
         return True
-    except Exception as e:
-        st.error(f"Erro ao enviar: {e}")
+    except:
         return False
 
 # --- INTERFACE ---
-uploaded_file = st.file_uploader("Suba o PDF (Será analisado com rigor matemático)", type="pdf")
-email_destino = st.text_input("E-mail para envio:", value="virodriguesbol@gmail.com")
+uploaded_file = st.file_uploader("Suba o PDF Técnico", type="pdf")
+email_destino = st.text_input("E-mail de destino:", value="virodriguesbol@gmail.com")
 
 if uploaded_file is not None:
     if st.button("🚀 Iniciar Auditoria"):
-        with st.spinner("O Revisor Sênior está conferindo cada cota e termo técnico..."):
+        with st.spinner("Realizando conferência matemática rigorosa..."):
             try:
                 images = pdf_to_images(uploaded_file)
                 model = genai.GenerativeModel('gemini-2.5-flash')
                 
-                # PROMPT DE ALTA PRECISÃO
-                prompt = f"""
-                Você é um Arquiteto Revisor Sênior obcecado por precisão. 
-                Sua missão é encontrar APENAS erros reais. Falsos positivos prejudicam sua reputação.
+                # NOVO PROMPT COM LÓGICA DE PENSAMENTO (CHAIN OF THOUGHT)
+                prompt = """
+                Você é um Arquiteto Revisor Sênior. Sua prioridade ZERO é NÃO reportar erros inexistentes. 
+                Erros de leitura de imagem (OCR) são comuns, por isso você deve ser extremamente conservador.
 
-                --- PROTOCOLO DE VERIFICAÇÃO ---
-                1. COTAS: Ao somar cotas parciais, faça o cálculo duas vezes. Se a diferença for menor que 1cm, ignore (pode ser arredondamento). Só reporte se houver erro matemático claro.
-                2. TERMOS TÉCNICOS: NÃO reporte como erro termos como: Cooktop, Cocktop (variante aceitável), cm, CM, m, M, H:, PA, sapatas, layout, etc.
-                3. ORTOGRAFIA: Ignore variações de Maiúsculas/Minúsculas. Só reporte se a palavra for ilegível ou mudar o sentido técnico.
-                4. ELÉTRICA/HIDRÁULICA: Só aponte ausência de cota se for impossível executar a instalação com as informações dadas.
+                Siga este processo para cada cota:
+                1. IDENTIFICAÇÃO: Localize os números das cotas parciais e a cota total.
+                2. DESCARTE DE RUÍDO: Se um número estiver cortado por uma linha ou estiver ilegível, NÃO reporte erro sobre ele.
+                3. CÁLCULO REAL: Some as parciais. 
+                4. VALIDAÇÃO: Se a soma das parciais for DIFERENTE da cota total em mais de 0.02 (2cm), verifique se você leu os números corretamente. 
+                5. SÓ REPORTE SE: Se após conferir 3 vezes, a diferença matemática for óbvia e clara.
 
-                --- FORMATO DA RESPOSTA ---
-                - Use uma tabela Markdown: | Categoria | Local (Prancha/Página) | Descrição do Erro | Sugestão de Ajuste |
-                - Se uma categoria estiver 100% correta, escreva "CONFORME" e não liste erros nela.
-                - Seja direto. Menos é mais. Só escreva se tiver certeza absoluta.
+                PROIBIÇÕES:
+                - NÃO reporte erros de termos técnicos (Cooktop, cm, m, etc).
+                - NÃO reporte erros de maiúsculas/minúsculas.
+                - NÃO reporte erros se não tiver certeza absoluta do número que está lendo.
+
+                FORMATO DA RESPOSTA:
+                | Categoria | Prancha | Texto/Cota Lida | Problema Real | Sugestão |
+                | :--- | :--- | :--- | :--- | :--- |
+                (Se tudo estiver correto em uma categoria, apenas escreva: 'Categoria X: Conforme')
                 """
                 
                 response = model.generate_content([prompt, *images])
@@ -98,7 +90,7 @@ if uploaded_file is not None:
                 
                 st.markdown(relatorio)
                 if enviar_email(relatorio, email_destino):
-                    st.success("Relatório validado enviado!")
+                    st.success("Relatório enviado!")
                 
                 del images
                 gc.collect()
